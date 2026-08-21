@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>apm2go</title>
+    <meta name="description" content="Traces and metrics from JVMs instrumented while they run." />
+
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+    <!-- The browser chrome around the page, matched to each palette's page
+         surface so the address bar does not sit at a different brightness
+         from the app under it. -->
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#eef1f5" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#070b12" />
+
+    <script>
+      // Applies a saved theme choice before the first paint.
+      //
+      // The toggle in the app sets this too, but it cannot run until React has
+      // mounted -- by which time the page has already been painted in whatever
+      // the OS prefers. An operator who chose light on a dark-mode machine
+      // would see a dark flash on every navigation without this.
+      //
+      // The key is shared with ThemeToggle.tsx; changing it there means
+      // changing it here.
+      try {
+        var saved = localStorage.getItem("apm2go-theme");
+        if (saved === "light" || saved === "dark") {
+          document.documentElement.setAttribute("data-theme", saved);
+        }
+      } catch (e) {
+        // Private mode, or storage disabled by policy. Following the OS is a
+        // perfectly good fallback, so there is nothing to report.
+      }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

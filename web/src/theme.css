@@ -1,0 +1,314 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens.
+ *
+ * Colours are addressed by role rather than by hex throughout the app, so the
+ * light and dark palettes swap in exactly one place. The categorical series
+ * slots are assigned in fixed order and never cycled: a chart's fourth series
+ * is always slot 4, whatever the filters happen to select, so a colour always
+ * means the same entity.
+ *
+ * The palette is taken from the logo rather than chosen beside it. Three
+ * things come straight off the artwork:
+ *
+ *   - the deep navy of the cup is the ink every piece of text is set in, and
+ *     the hue every neutral is tinted towards, so greys read as part of the
+ *     brand instead of as an absence of one;
+ *   - the orange of the "2" and the green of "GO" are the accents, and lead
+ *     the categorical series in that order;
+ *   - the gauge printed on the cup is already a status ramp — green, amber,
+ *     orange, red — so the status tokens are that gauge, read left to right.
+ *
+ * The dark palette is the third supplied asset: near-black with a navy cast,
+ * not neutral black, with the accents holding their saturation against it.
+ */
+
+:root {
+  color-scheme: light;
+
+  /* The brand itself. These four do not change between themes — they are what
+     the logo is made of, and the mark is rendered over both. */
+  --surface-1: #fcfcfb;
+  --surface-page: #f9f9f7;
+  --brand-orange: #e87818;
+  --brand-green: #38803f;
+  --brand-cream: #f9f6f0;
+
+  /* The navigation rail, which does not follow the theme.
+
+     It keeps its own fixed surface in both palettes, deliberately: the one
+     element that is always on screen then does not change under an operator
+     who switches theme to read a chart. The surface is a light, faintly cool
+     gray — the same navy hue the ink and the mark use, pushed almost all the
+     way to white — rather than the brand navy at full strength or a neutral
+     grey with no relation to it: spread across a whole panel, the navy read
+     as a second, competing background instead of a support for the first.
+
+     Being light rather than dark means every overlay below is ink-based, not
+     white-based — a hover wash, an active fill, a border all read as a
+     darkening of this surface, the same relationship every other surface in
+     the app has with var(--border) and var(--hover-wash). */
+  --rail-bg: #dee4ec;
+  --rail-text: #36383a;
+  --rail-text-active: var(--brand-navy);
+  --rail-hover: rgba(10, 25, 43, 0.06);
+  --rail-active: rgba(10, 25, 43, 0.1);
+  --rail-border: rgba(10, 25, 43, 0.14);
+  --rail-muted: #56637d;
+  /* The wordmark's green, stepped for the rail's fixed dark ground rather
+     than taken from the series slot, which follows the theme. */
+  --rail-green: #63b56d;
+
+  /* Surfaces and ink. Neutrals carry a navy cast rather than being pure grey. */
+  --surface-page: #eef1f5;
+  --surface-1: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-sunken: #e5eaf1;
+  --text-primary: #0a192b;
+  --text-secondary: #43566c;
+  --text-muted: #7a8ca3;
+  --gridline: #dce3ec;
+  --baseline: #b8c4d3;
+  --border: rgba(10, 25, 43, 0.1);
+  --border-strong: rgba(10, 25, 43, 0.2);
+  --hover-wash: rgba(10, 25, 43, 0.045);
+
+  /* Categorical series, in fixed assignment order. The first three are the
+     brand triad, so the commonest charts — one, two or three series — are
+     drawn entirely in the product's own colours. */
+  --series-1: #1e5fa8;
+  --series-2: #e87818;
+  --series-3: #38803f;
+  --series-4: #b5851f;
+  --series-5: #b4478e;
+  --series-6: #0e8c96;
+  --series-7: #6a4fbf;
+  --series-8: #c43b34;
+
+  /* Status, read off the gauge on the cup. Reserved: never reused as a series
+     colour, and always paired with an icon or label so state is never carried
+     by hue alone. */
+  --status-good: #2fa043;
+  --status-warning: #efa300;
+  --status-serious: #e87818;
+  --status-critical: #dc3220;
+  --status-good-text: #227a33;
+  --status-warning-text: #8a5d00;
+
+  /* Sequential ramp, used for latency distribution density. Navy family, so
+     density reads as "more of the same thing" rather than a second category. */
+  --seq-100: #d7e3f2;
+  --seq-250: #9cbce0;
+  --seq-400: #5a8fc8;
+  --seq-550: #2a5f9e;
+  --seq-700: #123156;
+
+  /* Type. No webfont is linked: apm2go serves this UI from inside its own
+     binary, often on a host with no route to the internet, and a font that
+     silently fails to load would take the page's whole typographic hierarchy
+     with it. The hierarchy is built from weight, size and tracking instead. */
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI Variable Text", "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-mono:
+    ui-monospace, "SF Mono", SFMono-Regular, "JetBrains Mono", "Cascadia Mono", Menlo, Consolas,
+    monospace;
+
+  /* Elevation and shape. */
+  --radius-card: 12px;
+  --radius-control: 8px;
+  --shadow-card:
+    0 1px 2px rgba(10, 25, 43, 0.05), 0 1px 3px rgba(10, 25, 43, 0.04);
+  --shadow-pop: 0 8px 28px rgba(10, 25, 43, 0.14);
+}
+
+/*
+ * The dark palette is written out twice, deliberately.
+ *
+ * A viewer has three states, not two: an explicit choice stamps data-theme on
+ * the root, and the default "system" setting stamps nothing at all. The media
+ * query serves that unstamped state, guarded so an explicit light choice still
+ * beats a dark OS; the attribute rule serves the toggle. Plain CSS has nowhere
+ * to hoist the shared values to, so the two blocks are kept adjacent and are
+ * changed together.
+ */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --surface-page: #070b12;
+    --surface-1: #0e1522;
+    --surface-raised: #141d2e;
+    --surface-sunken: #05080e;
+    --text-primary: #e8eef6;
+    --text-secondary: #a0b2c8;
+    --text-muted: #6e8199;
+    --gridline: #1b2534;
+    --baseline: #2c3849;
+    --border: rgba(255, 255, 255, 0.09);
+    --border-strong: rgba(255, 255, 255, 0.18);
+    --hover-wash: rgba(255, 255, 255, 0.055);
+
+    /* The same eight hues, re-stepped for the dark surface rather than
+       flipped: an automatic inversion would leave several below 3:1. */
+    --series-1: #4e9be8;
+    --series-2: #f2903a;
+    --series-3: #4fa85c;
+    --series-4: #d9a62b;
+    --series-5: #de7ab8;
+    --series-6: #2fb3bd;
+    --series-7: #9a85f0;
+    --series-8: #e5675f;
+
+    --status-good: #3fb857;
+    --status-warning: #f5b731;
+    --status-serious: #f2903a;
+    --status-critical: #ef5a4a;
+    --status-good-text: #4fbe64;
+    --status-warning-text: #f5b731;
+
+    /* Inverted: on a dark ground the densest bucket is the brightest one. */
+    --seq-100: #1a2e48;
+    --seq-250: #24507f;
+    --seq-400: #3a79b8;
+    --seq-550: #63a2dc;
+    --seq-700: #a8cbee;
+
+    --shadow-card:
+      0 1px 2px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.35);
+    --shadow-pop: 0 8px 28px rgba(0, 0, 0, 0.6);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --surface-page: #070b12;
+  --surface-1: #0e1522;
+  --surface-raised: #141d2e;
+  --surface-sunken: #05080e;
+  --text-primary: #e8eef6;
+  --text-secondary: #a0b2c8;
+  --text-muted: #6e8199;
+  --gridline: #1b2534;
+  --baseline: #2c3849;
+  --border: rgba(255, 255, 255, 0.09);
+  --border-strong: rgba(255, 255, 255, 0.18);
+  --hover-wash: rgba(255, 255, 255, 0.055);
+
+  --series-1: #4e9be8;
+  --series-2: #f2903a;
+  --series-3: #4fa85c;
+  --series-4: #d9a62b;
+  --series-5: #de7ab8;
+  --series-6: #2fb3bd;
+  --series-7: #9a85f0;
+  --series-8: #e5675f;
+
+  --status-good: #3fb857;
+  --status-warning: #f5b731;
+  --status-serious: #f2903a;
+  --status-critical: #ef5a4a;
+  --status-good-text: #4fbe64;
+  --status-warning-text: #f5b731;
+
+  --seq-100: #1a2e48;
+  --seq-250: #24507f;
+  --seq-400: #3a79b8;
+  --seq-550: #63a2dc;
+  --seq-700: #a8cbee;
+
+  --shadow-card:
+    0 1px 2px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.35);
+  --shadow-pop: 0 8px 28px rgba(0, 0, 0, 0.6);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+/* Nothing should ever scroll the page sideways; wide content scrolls inside
+   its own container instead. */
+body {
+  overflow-x: hidden;
+  margin: 0;
+  background: var(--surface-page);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Columns of numbers have to line up; standalone figures should not be forced
+   into monospaced widths. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Identifiers that are read character by character — pids, trace and span ids,
+   container digests. Proportional type makes these genuinely harder to compare
+   by eye, which is the only thing anyone ever does with them. */
+.ident {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  letter-spacing: -0.01em;
+}
+
+/* The small uppercase label above a figure or a column. Tracking does the work
+   that a second typeface would otherwise do. */
+.eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* A card is the standard container for a chart or a table. */
+.card {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.hairline {
+  border-color: var(--border);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Focus is never removed, only restyled, so keyboard navigation stays visible. */
+:focus-visible {
+  outline: 2px solid var(--series-1);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--series-1) 25%, transparent);
+}
+
+/* Scrollbars inside cards and tables, so a wide table does not open with a
+   heavyweight platform scrollbar cutting across the design. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--baseline) transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

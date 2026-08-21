@@ -1,0 +1,40 @@
+# Multi-language acceptance test image.
+#
+# Extends the ordinary rpmtest image (build/Dockerfile.rpmtest) with Node.js
+# and Python runtimes and a precompiled Go binary, so the Java chain gets three
+# non-Java callers in front of it. None of the three carry tracing code, same
+# as the Java chain itself: whatever apm2go reports about them, it learned by
+# watching already-running processes from outside.
+#
+# This is deliberately a separate image from the plain one rather than an
+# addition to it: most of what build/e2e.sh checks has nothing to do with
+# eBPF, and keeping that run lean is what makes a failure in either test say
+# something specific.
+FROM rockylinux:9
+
+RUN dnf install -y java-21-openjdk-headless procps-ng python3 && \
+    dnf module enable nodejs:20 -y && \
+    dnf install -y nodejs && \
+    dnf clean all
+
+WORKDIR /opt/chain
+COPY build/chain/lib /opt/chain/lib
+COPY build/chain/classes /opt/chain/classes
+COPY build/chain/start-chain.sh /opt/chain/start-chain.sh
+RUN chmod +x /opt/chain/start-chain.sh
+
+WORKDIR /opt/multilang
+COPY build/multilang/node-caller.js /opt/multilang/node-caller.js
+COPY build/multilang/py-caller.py /opt/multilang/py-caller.py
+COPY build/multilang/go-caller /opt/multilang/go-caller
+COPY build/multilang/start-multilang.sh /opt/multilang/start-multilang.sh
+RUN chmod +x /opt/multilang/go-caller /opt/multilang/start-multilang.sh
+
+ARG RPM_FILE
+COPY dist/${RPM_FILE} /tmp/apm2go.rpm
+RUN rpm -i /tmp/apm2go.rpm && rm -f /tmp/apm2go.rpm
+
+# The chain and the three non-Java callers start first and keep running;
+# whatever is passed as the command starts afterwards, against processes that
+# are already serving traffic — apm2go included.
+ENTRYPOINT ["/bin/bash", "-c", "/opt/chain/start-chain.sh && /opt/multilang/start-multilang.sh && sleep 5 && exec \"$@\"", "--"]

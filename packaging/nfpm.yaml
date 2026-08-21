@@ -1,0 +1,49 @@
+# Package definition for RPM and DEB, built with nfpm.
+#
+# nfpm is used rather than rpmbuild so packages can be produced on any host,
+# including a developer's macOS machine, with no distribution tooling installed.
+name: apm2go
+arch: ${ARCH}
+platform: linux
+version: ${VERSION}
+section: utils
+priority: optional
+maintainer: apm2go maintainers
+description: |
+  Standalone APM for Java applications.
+
+  apm2go discovers the JVMs running on a host, instruments them without
+  requiring a restart, stores the resulting traces in an embedded database and
+  serves a web interface over them. It has no external dependencies: no JDK, no
+  database, and no separate collector.
+vendor: apm2go
+homepage: https://github.com/apm2go/apm2go
+license: Apache-2.0
+
+contents:
+  - src: ./dist/apm2go_${ARCH}
+    dst: /usr/bin/apm2go
+    file_info:
+      mode: 0755
+
+  - src: ./packaging/config.yaml
+    dst: /etc/apm2go/config.yaml
+    type: config|noreplace
+
+  - src: ./packaging/apm2go.service
+    dst: /usr/lib/systemd/system/apm2go.service
+
+  - dst: /var/lib/apm2go
+    type: dir
+    file_info:
+      mode: 0750
+
+scripts:
+  postinstall: ./packaging/postinstall.sh
+  preremove: ./packaging/preremove.sh
+
+overrides:
+  rpm:
+    depends: []
+  deb:
+    depends: []

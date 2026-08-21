@@ -1,0 +1,43 @@
+# The workloads, with no apm2go in the image.
+#
+# build/Dockerfile.rpmtest-multilang puts every service and apm2go itself in one
+# container, which is the right shape for asserting what apm2go does with the
+# processes beside it. This image is for the other question: whether apm2go
+# finds services it shares nothing with but a kernel. So it carries the runtimes
+# and the application code and nothing else — no RPM, no agent, no entry point
+# that starts anything. build/e2e-multicontainer.sh runs one container per
+# service from it, each with its own command.
+#
+# One image for all of them rather than one image each: they differ only in
+# which interpreter or server runs which file, and building the same Rocky base
+# nine times would cost minutes to prove nothing.
+FROM rockylinux:9
+
+# curl is not installed: the base image already ships curl-minimal, which
+# provides the same binary and conflicts with the full package.
+RUN dnf install -y java-21-openjdk-headless procps-ng python3 nginx httpd && \
+    dnf module enable nodejs:20 -y && \
+    dnf install -y nodejs && \
+    dnf clean all
+
+# Both servers keep their packaged configuration and gain one file each, so
+# each ends up listening on the distribution's default port as well as its own.
+# A web server bound to more than one port is the ordinary case, and the one
+# apm2go's single-port selector used to get wrong.
+COPY build/webservers/nginx-apm2go.conf /etc/nginx/conf.d/apm2go.conf
+COPY build/webservers/httpd-apm2go.conf /etc/httpd/conf.d/apm2go.conf
+
+WORKDIR /opt/chain
+COPY build/chain/lib /opt/chain/lib
+COPY build/chain/classes /opt/chain/classes
+
+WORKDIR /opt/multilang
+COPY build/multilang/node-caller.js /opt/multilang/node-caller.js
+COPY build/multilang/py-caller.py /opt/multilang/py-caller.py
+COPY build/multilang/go-caller /opt/multilang/go-caller
+RUN chmod +x /opt/multilang/go-caller
+
+# No ENTRYPOINT and no CMD: every container built from this image is told what
+# to run. A default here would be a service that starts in containers meant to
+# run something else.
+WORKDIR /opt

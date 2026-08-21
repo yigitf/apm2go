@@ -1,0 +1,54 @@
+# apm2go as a container image — the second supported way to deploy it, beside
+# the RPM and DEB packages.
+#
+# The image is deliberately thin. apm2go carries its own agent jars and web UI
+# inside the binary, so nothing but a CA bundle and a shell for diagnosis is
+# added on top.
+#
+# How to run it matters more than what is in it. apm2go has to see the host's
+# processes and be reachable by them:
+#
+#   docker run -d --name apm2go \
+#     --pid=host --network=host --privileged \
+#     -v /var/run/docker.sock:/var/run/docker.sock:ro \
+#     -v apm2go-data:/var/lib/apm2go \
+#     apm2go:latest
+#
+# --pid=host lets discovery see JVMs in other containers and on the host.
+# --network=host is what lets apm2go bind the container gateways that
+# containerised applications export to; without it, ingest is reachable only
+# from apm2go's own network. The Docker socket is mounted read-only and used
+# solely to turn container ids into names.
+#
+# --privileged can be narrowed to the capabilities actually needed:
+#   --cap-add SYS_PTRACE --cap-add SETUID --cap-add SETGID \
+#   --cap-add KILL --cap-add DAC_READ_SEARCH
+FROM debian:12-slim
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates procps curl \
+    && rm -rf /var/lib/apt/lists/*
+
+ARG TARGETARCH
+COPY dist/apm2go_${TARGETARCH} /usr/bin/apm2go
+RUN chmod +x /usr/bin/apm2go
+
+COPY packaging/config.yaml /etc/apm2go/config.yaml
+
+# The database and the jars staged for injection live here; mount a volume to
+# keep traces across restarts.
+VOLUME /var/lib/apm2go
+
+# Web UI, OTLP/gRPC, OTLP/HTTP. Declared for documentation: with --network=host
+# these are bound directly on the host.
+EXPOSE 8080 4317 4318
+
+# The probe resolves the API address from the same configuration the server
+# reads. Curling a hardcoded port would report a perfectly healthy apm2go as
+# unhealthy the moment api.addr is changed — and under an orchestrator that
+# means restarting a working process in a loop.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15s \
+    CMD ["/usr/bin/apm2go", "healthcheck", "--config", "/etc/apm2go/config.yaml"]
+
+ENTRYPOINT ["/usr/bin/apm2go"]
+CMD ["run", "--config", "/etc/apm2go/config.yaml"]

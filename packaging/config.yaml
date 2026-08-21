@@ -1,0 +1,124 @@
+# apm2go configuration.
+#
+# Every setting below is shown at its default value. Delete a line to keep the
+# default; apm2go runs correctly with this file empty, or absent entirely.
+
+# Which subsystems run here. "all" is a normal single-host install; "agent" and
+# "server" split discovery from storage across hosts.
+mode: all
+
+data_dir: /var/lib/apm2go
+
+log:
+  level: info # debug, info, warn, error
+  format: text # text or json
+
+discovery:
+  enabled: true
+  # How often /proc is scanned for new JVMs.
+  interval: 3s
+  # How long a JVM must have been running before apm2go will attach. Attaching
+  # mid-startup both misses spans and slows the boot it interrupts.
+  min_uptime: 10s
+  # When include is non-empty, only matching processes are managed. Patterns are
+  # case-insensitive substrings matched against the service name, the full
+  # command line, the systemd unit and the container id.
+  include: []
+  exclude: []
+
+  # Read, never written, to turn container ids into names, images and
+  # orchestration labels. Mount it read-only when running apm2go in a container.
+  # If it is absent, apm2go falls back to what the cgroup path alone reveals.
+  docker_socket: /var/run/docker.sock
+
+attach:
+  # Instrument every discovered JVM automatically. Set to false to make
+  # attaching an explicit action from the UI or the CLI.
+  auto_attach: true
+  timeout: 30s
+  retry_backoff: 2m
+  max_retries: 3
+
+  # Fraction of traces to sample, from 0 to 1. Lower this first if apm2go is
+  # using more resources than you want to give it.
+  sample_ratio: 1.0
+
+  # Where instrumented JVMs send their traces. This is the address as seen from
+  # inside the target process.
+  otlp_endpoint: http://127.0.0.1:4317
+
+  # JVMs in their own network namespace cannot reach loopback on the host. Set
+  # this to an address reachable from inside them, such as a bridge gateway.
+  # container_otlp_endpoint: http://172.17.0.1:4317
+
+  # Logging inside the target application: "none" keeps its logs clean,
+  # "simple" is useful while diagnosing a failed attach.
+  agent_logging: none
+
+  # Ask instrumented JVMs to report their runtime state — heap, GC, threads,
+  # class loading — alongside traces. The agent already knows how; this is what
+  # turns the exporter on.
+  metrics_enabled: true
+  metrics_interval: 15s
+
+  # Passed through to the OpenTelemetry agent as system properties.
+  extra_properties: {}
+
+receiver:
+  grpc_addr: 127.0.0.1:4317
+  http_addr: 127.0.0.1:4318
+  max_recv_msg_bytes: 16777216
+
+  # Whether containerized applications can reach ingest at all.
+  #   off  - listen on the addresses above only; containers cannot export
+  #   auto - also listen on the gateway of each container network discovered,
+  #          which are addresses this host already owns
+  #   all  - listen on every interface
+  # Binding a container gateway requires being in the host's network namespace:
+  # automatic for the systemd service, and "--network=host" for the container.
+  container_bind: auto
+
+  # Reject telemetry that does not carry the token apm2go injected. This matters
+  # once ingest listens on a container network, where anything else on that
+  # bridge could otherwise write spans under any service name.
+  require_token: true
+
+pipeline:
+  # Spans buffered before load is shed. apm2go drops spans rather than blocking
+  # a monitored application's export thread.
+  queue_size: 50000
+  # Global ingest ceiling; 0 disables it.
+  max_spans_per_second: 20000
+  batch_size: 5000
+  batch_timeout: 2s
+  # Oversized attribute values, such as long SQL statements, are truncated here.
+  max_attr_bytes: 4096
+  # Cardinality ceilings. Names past these limits collapse into "__other__",
+  # which keeps a misbehaving application from filling the database.
+  max_services: 500
+  max_operations: 5000
+
+storage:
+  path: apm2go.duckdb
+  # Raw spans are what a trace waterfall is drawn from, and are large.
+  span_retention: 72h
+  # Aggregated metrics are small, and are what long-range charts read.
+  rollup_retention: 720h
+  # Metric points are far smaller than spans and worth keeping longer.
+  metric_retention: 336h
+  maintenance_interval: 5m
+  memory_limit: 1GB
+  threads: 2
+
+# Measurement of the machine itself: CPU, memory, disk, network, load average.
+# This is what distinguishes a service that got slower from a host that ran out
+# of something — the two are indistinguishable in a latency chart alone.
+host_metrics:
+  enabled: true
+  interval: 15s
+
+api:
+  addr: 0.0.0.0:8080
+  base_path: /
+  # Hide attach and disable actions from the UI.
+  read_only: false

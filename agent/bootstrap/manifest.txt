@@ -1,0 +1,6 @@
+Manifest-Version: 1.0
+Implementation-Title: apm2go-bootstrap
+Agent-Class: io.apm2go.bootstrap.BootstrapAgent
+Premain-Class: io.apm2go.bootstrap.BootstrapAgent
+Can-Retransform-Classes: false
+Can-Redefine-Classes: false

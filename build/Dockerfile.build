@@ -1,0 +1,101 @@
+# Builds apm2go for Linux.
+#
+# The base image is chosen for its glibc, not its convenience. The DuckDB driver
+# uses cgo, so the binary links against the C library of whatever built it, and
+# a binary built on current Debian requires a glibc newer than the enterprise
+# distributions apm2go is meant to be installed on. Rocky Linux 8 carries glibc
+# 2.28, which covers RHEL/Rocky/Alma 8+, Ubuntu 18.04+ and Debian 10+.
+#
+# Its default GCC is too old to link DuckDB's prebuilt C++ objects, so a newer
+# compiler is used from gcc-toolset — a newer toolchain against an older libc,
+# which is exactly the combination this needs.
+FROM rockylinux:8 AS builder
+
+ARG GO_VERSION=1.26.6
+
+# libstdc++-static supplies the archive that -static-libstdc++ links against.
+# Without it the flag is a silent no-op: the link succeeds and the binary comes
+# out dynamically linked anyway, which the check at the end of this file exists
+# to catch.
+# The static archive lives in the powertools repository, which is present but
+# disabled in the base image.
+RUN dnf install -y --enablerepo=powertools \
+        gcc-toolset-12 gcc-toolset-12-libstdc++-devel libstdc++-static \
+        tar gzip binutils && dnf clean all
+
+# The Go toolchain is fetched rather than packaged, so the build is pinned to a
+# known version regardless of what the distribution ships.
+ARG TARGETARCH
+RUN curl -sSLf "https://go.dev/dl/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz" \
+    | tar -C /usr/local -xz
+ENV PATH="/usr/local/go/bin:${PATH}"
+
+WORKDIR /src
+
+# Dependencies are layered separately so editing source does not re-download
+# the module cache.
+COPY go.mod go.sum ./
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/root/go/pkg/mod \
+    source /opt/rh/gcc-toolset-12/enable && go mod download
+
+COPY . .
+
+# apm2go-attach-helper first, cgo-free, into the path the main build's
+# go:embed directive reads from. It has to happen before that build, and it
+# has to be CGO_ENABLED=0: the whole reason this is a separate binary is a
+# privilege-drop mechanism (Go's AllThreadsSyscall) that refuses to run the
+# instant cgo is linked in, which the main apm2go binary always is, for the
+# DuckDB driver two steps down from here. GOOS and GOARCH are already this
+# container's own, from --platform; no need to name them explicitly.
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/root/go/pkg/mod \
+    CGO_ENABLED=0 go build -trimpath -ldflags '-s -w' \
+        -o internal/attachhelper/files/apm2go-attach-helper \
+        ./cmd/apm2go-attach-helper
+
+ARG VERSION=dev
+ARG COMMIT=none
+ARG BUILD_DATE=unknown
+
+ENV CGO_ENABLED=1
+# libstdc++ is linked statically: its runtime version varies far more across
+# distributions than glibc's does, and bundling it costs a few megabytes
+# against an entire class of "version GLIBCXX_x not found" failures. This
+# matters more than usual here, because the DuckDB driver is C++ compiled with
+# a newer toolchain than the target hosts ship.
+#
+# -static-libstdc++ alone does not achieve it: that flag only redirects the
+# implicit -lstdc++, and the DuckDB driver passes an explicit one through its
+# cgo LDFLAGS, which keeps resolving to the shared library. Giving the linker a
+# directory holding nothing but the static archive, searched before the system
+# paths, makes that explicit -lstdc++ resolve statically instead.
+RUN source /opt/rh/gcc-toolset-12/enable && \
+    mkdir -p /opt/static-libs && \
+    cp "$(g++ -print-file-name=libstdc++.a)" /opt/static-libs/
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/root/go/pkg/mod \
+    source /opt/rh/gcc-toolset-12/enable && \
+    go build -trimpath \
+        -ldflags "-s -w \
+            -linkmode external \
+            -extld g++ \
+            -extldflags '-L/opt/static-libs -static-libgcc' \
+            -X github.com/apm2go/apm2go/internal/version.Version=${VERSION} \
+            -X github.com/apm2go/apm2go/internal/version.Commit=${COMMIT} \
+            -X github.com/apm2go/apm2go/internal/version.BuildDate=${BUILD_DATE}" \
+        -o /out/apm2go ./cmd/apm2go
+
+# The compatibility floor is asserted at build time rather than discovered on a
+# customer's host: this fails the build if a dependency ever pulls in a newer
+# symbol than the oldest supported distribution provides.
+RUN echo "Requires at most glibc $(objdump -T /out/apm2go | grep -o 'GLIBC_[0-9.]*' | sort -uV | tail -1)" && \
+    if objdump -T /out/apm2go | grep -q 'GLIBCXX_'; then \
+        echo "FAIL: the binary still depends on a dynamic libstdc++" >&2; \
+        objdump -p /out/apm2go | grep NEEDED >&2; \
+        exit 1; \
+    fi && \
+    echo "libstdc++ is linked statically"
+
+FROM scratch AS export
+COPY --from=builder /out/apm2go /apm2go

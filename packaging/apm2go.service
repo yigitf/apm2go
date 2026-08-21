@@ -1,0 +1,57 @@
+[Unit]
+Description=apm2go — standalone APM for Java applications
+Documentation=https://github.com/apm2go/apm2go
+After=network.target
+
+[Service]
+Type=exec
+ExecStart=/usr/bin/apm2go run --config /etc/apm2go/config.yaml
+Restart=always
+RestartSec=5s
+
+# apm2go must run as root. Attaching to a JVM requires connecting to its attach
+# socket as that JVM's own user, which means being able to become any user on
+# the host; the attach itself is then performed by a short-lived child process
+# with the target's credentials, never by this one.
+User=root
+Group=root
+
+# Reading /proc and signalling arbitrary processes is the whole job, so those
+# capabilities are kept. Everything else is dropped.
+#
+# The second line is what eBPF instrumentation needs, and leaving it out is not
+# a safe default — it is a silent one. Measured: with only the first line, the
+# supervisor starts OBI, OBI runs without complaint, and not one span is ever
+# produced for a Node.js, Python, Go or web-server process. Java is unaffected,
+# so the install looks healthy and is quietly missing half of what it covers.
+# Narrow this set only against a running host, never by reasoning about it.
+CapabilityBoundingSet=CAP_SETUID CAP_SETGID CAP_KILL CAP_DAC_READ_SEARCH CAP_SYS_PTRACE
+CapabilityBoundingSet=CAP_BPF CAP_PERFMON CAP_NET_ADMIN CAP_NET_RAW CAP_SYS_RESOURCE CAP_CHECKPOINT_RESTORE
+NoNewPrivileges=false
+
+# The database and staged agent jars live here.
+StateDirectory=apm2go
+WorkingDirectory=/var/lib/apm2go
+
+# apm2go shares a host with the applications it monitors and must never be the
+# reason one of them is starved. These are ceilings, not reservations.
+MemoryMax=1G
+MemoryHigh=768M
+CPUQuota=50%
+TasksMax=256
+
+# Filesystem hardening. /proc must stay fully visible: a hidepid or subset view
+# would make discovery blind to the very processes it exists to find.
+ProtectSystem=strict
+ReadWritePaths=/var/lib/apm2go
+ProtectHome=true
+PrivateTmp=false
+ProtectProc=default
+ProcSubset=all
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=apm2go
+
+[Install]
+WantedBy=multi-user.target
