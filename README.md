@@ -87,6 +87,27 @@ docker run -d --name apm2go \
 
 Then open `http://<host>:8080`.
 
+### On macOS or Windows
+
+Docker Desktop runs containers inside a Linux VM, so `--network=host` binds to
+that VM and not to your machine. Publish the ports instead, and let the receiver
+listen on every address so the published ones reach it:
+
+```bash
+docker run -d --name apm2go \
+  --pid=host --privileged \
+  -p 8080:8080 -p 4317:4317 -p 4318:4318 \
+  -e APM2GO_OTLP_GRPC_ADDR=0.0.0.0:4317 \
+  -e APM2GO_OTLP_HTTP_ADDR=0.0.0.0:4318 \
+  -v /var/run/docker.sock:/var/run/docker.sock:ro \
+  -v apm2go-data:/var/lib/apm2go \
+  ghcr.io/yigitf/apm2go:latest
+```
+
+Only applications running in Docker containers can be watched this way. The
+processes on the computer itself are outside that VM, and apm2go cannot see
+them.
+
 For the details of the package and container installs, why each permission is
 needed, and troubleshooting steps, see [INSTALL.md](INSTALL.md). To build any of
 the three yourself instead, see [CONTRIBUTING.md](CONTRIBUTING.md#before-you-build)

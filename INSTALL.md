@@ -66,6 +66,33 @@ Every flag is load-bearing:
 | `-v /var/run/docker.sock:ro` | Turns container ids into names. Optional; without it containers show as ids. |
 | `-v apm2go-data` | Keeps traces, and the ingest tokens, across restarts. Optional but wanted: see the note on tokens. |
 
+### macOS and Windows
+
+Docker Desktop runs containers inside a Linux VM, so `--network=host` binds to
+that VM and not to your machine: apm2go listens on 8080 and the browser still
+cannot reach it. Publish the ports instead — 8080 for the web interface, 4317
+and 4318 for the telemetry instrumented applications send back:
+
+```bash
+docker run -d --name apm2go \
+  --pid=host --privileged \
+  -p 8080:8080 -p 4317:4317 -p 4318:4318 \
+  -e APM2GO_OTLP_GRPC_ADDR=0.0.0.0:4317 \
+  -e APM2GO_OTLP_HTTP_ADDR=0.0.0.0:4318 \
+  -v /var/run/docker.sock:/var/run/docker.sock:ro \
+  -v apm2go-data:/var/lib/apm2go \
+  ghcr.io/yigitf/apm2go:latest
+```
+
+The two environment variables are not optional. By default the receiver listens
+on the container's loopback, which a published port never reaches; without them
+8080 works and no telemetry ever arrives.
+
+**Only applications running in Docker containers can be watched this way.**
+`--pid=host` reaches the processes of the Linux VM, which are the containers;
+the processes on the computer itself are outside it and apm2go cannot see them.
+For watching a whole machine, install the package on a Linux host.
+
 ### Narrowing `--privileged`
 
 `--privileged` is the easy setting, not the required one. This set is measured
