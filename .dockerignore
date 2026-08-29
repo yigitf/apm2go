@@ -1,0 +1,29 @@
+# The build context should carry source only. Every embedded artefact — the web
+# UI, both agent jars, the OBI binary and the attach helper — is produced or
+# fetched inside build/Dockerfile.build, so anything of the sort lying around on
+# the host is deliberately kept out: it would otherwise be copied in and
+# silently win over the freshly built one.
+.git
+.github
+.claude
+md
+*.tar
+*.duckdb
+*.duckdb.wal
+.DS_Store
+
+web/node_modules
+web/.vite
+web/*.tsbuildinfo
+
+internal/api/dist
+internal/assets/files
+internal/ebpf/files
+internal/attachhelper/files
+agent/bootstrap/build
+
+# dist holds the finished Linux binaries. build/Dockerfile.apm2go copies one of
+# them into the image, so those are the one thing here that must stay.
+dist/*
+!dist/apm2go_amd64
+!dist/apm2go_arm64

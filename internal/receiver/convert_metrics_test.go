@@ -9,7 +9,7 @@ import (
 	metricpb "go.opentelemetry.io/proto/otlp/metrics/v1"
 	resourcepb "go.opentelemetry.io/proto/otlp/resource/v1"
 
-	"github.com/apm2go/apm2go/internal/model"
+	"github.com/yigitf/apm2go/internal/model"
 )
 
 // resourceMetrics wraps one instrument in the envelope OTLP delivers.

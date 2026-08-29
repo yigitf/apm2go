@@ -3,8 +3,8 @@ package api
 import (
 	"net/http"
 
-	"github.com/apm2go/apm2go/internal/container"
-	"github.com/apm2go/apm2go/internal/ebpf"
+	"github.com/yigitf/apm2go/internal/container"
+	"github.com/yigitf/apm2go/internal/ebpf"
 )
 
 // WatchedProcesses reports the non-Java processes apm2go is currently handing

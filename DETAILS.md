@@ -19,7 +19,7 @@ docker run -d --name apm2go \
   --pid=host --network=host --privileged \
   -v /var/run/docker.sock:/var/run/docker.sock:ro \
   -v apm2go-data:/var/lib/apm2go \
-  apm2go:latest
+  ghcr.io/yigitf/apm2go:latest
 ```
 
 Both deployments are interchangeable and share a data directory: pointing the
@@ -220,7 +220,7 @@ that page distinguishes "nothing is being sent" from "apm2go is shedding load".
 
 ## Installing
 
-Container image or RPM/DEB, both covered in **[docs/INSTALL.md](docs/INSTALL.md)**:
+Container image or RPM/DEB, both covered in **[INSTALL.md](INSTALL.md)**:
 what each `docker run` flag is for, what the package puts where, how to narrow
 the container's privileges, and what to check when something is missing.
 
@@ -232,37 +232,22 @@ the container's privileges, and what to check when something is missing.
 
 ## Building
 
+Docker is the only requirement: the web UI, both agent jars, the OBI binary and
+the attach helper are all built or fetched inside `build/Dockerfile.build`, so
+no Go toolchain, Node.js or JDK is needed on the build host.
+
 ```bash
-make test          # unit tests
-make build         # host binary
-make package       # linux amd64 + arm64 binaries, RPM and DEB
-make e2e           # install from the RPM on a clean Rocky Linux and verify
+make deb           # the .deb, and only the .deb
+make rpm           # the .rpm, and only the .rpm
+make image         # the container image
+make test          # gofmt, go vet and the unit tests, in a container
 ```
 
-`make e2e-all` runs every acceptance test. `make e2e` is the host scenario;
-`make e2e-container` runs the workload in its own container and apm2go from its
-own image in the host's namespaces, and additionally asserts that the gateway
-was resolved, that ingest was extended to it, and that an export without a token
-is refused. `make e2e-multilang` puts Node.js, Python and Go services in front of
-the Java chain and asserts each one's request joins the same trace.
+The packages are built for x86-64 and that is not a knob: apm2go is installed on
+servers, and an arm64 RPM would be a second artefact to build, publish and answer
+questions about for no one who exists. The container image is the exception,
+since trying apm2go out often happens on an arm64 laptop — `make image` follows
+the host and `ARCH=amd64` or `ARCH=arm64` overrides it.
 
-`make e2e-multicontainer` is the fullest arrangement: apm2go alone in one
-container and nine services — four Java, one Node.js, one Python, one Go, and an
-nginx and an Apache httpd reverse proxy — in nine others, sharing nothing but the
-kernel. Beside discovery and attach across those boundaries, it asserts that a
-request entering a non-Java container comes out as one trace spanning the Java
-chain, that each web server is reported once rather than once per worker
-process, and that every service reports the runtime it runs.
-
-The host scenario is the one to read first. It installs the built RPM on a stock
-distribution image where a four-node service chain is *already running and
-serving traffic*, then asserts the whole set of claims end to end: all four JVMs
-discovered, all four instrumented, and a single request through the chain
-producing one trace across all four services — with a server span per service,
-database spans, and a single root. It finishes by checking that none of the four
-pids changed, since instrumenting a live process is the entire premise.
-
-The workload under test (`build/chain/ChainNode.java`) contains no tracing code
-of any kind. It is an ordinary Jetty servlet application, deliberately so: see
-the note in that file for why the JDK's built-in HTTP server would have made the
-test meaningless.
+Each deliverable is made of one Linux binary, `dist/apm2go_$ARCH`, produced by
+whichever target needs it.

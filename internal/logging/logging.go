@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/apm2go/apm2go/internal/config"
+	"github.com/yigitf/apm2go/internal/config"
 )
 
 // New returns a slog.Logger honouring the configured level and format.

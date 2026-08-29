@@ -10,8 +10,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/apm2go/apm2go/internal/container"
-	"github.com/apm2go/apm2go/internal/discovery"
+	"github.com/yigitf/apm2go/internal/container"
+	"github.com/yigitf/apm2go/internal/discovery"
 )
 
 func newListCmd(gf *globalFlags) *cobra.Command {

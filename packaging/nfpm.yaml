@@ -8,16 +8,17 @@ platform: linux
 version: ${VERSION}
 section: utils
 priority: optional
-maintainer: apm2go maintainers
+maintainer: yigitf <yigitf@users.noreply.github.com>
 description: |
-  Standalone APM for Java applications.
+  Standalone APM for applications already running on a host.
 
-  apm2go discovers the JVMs running on a host, instruments them without
-  requiring a restart, stores the resulting traces in an embedded database and
-  serves a web interface over them. It has no external dependencies: no JDK, no
-  database, and no separate collector.
-vendor: apm2go
-homepage: https://github.com/apm2go/apm2go
+  apm2go discovers the services running on a host and instruments them without
+  requiring a restart: Java through the JVM's own attach protocol, and Node.js,
+  Python, Go and the web servers in front of them through eBPF. It stores the
+  resulting traces in an embedded database and serves a web interface over them,
+  with no external dependencies: no JDK, no database, and no separate collector.
+vendor: yigitf
+homepage: https://apm2go.fatihyigit.com
 license: Apache-2.0
 
 contents:

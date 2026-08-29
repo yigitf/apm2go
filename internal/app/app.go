@@ -14,7 +14,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/apm2go/apm2go/internal/config"
+	"github.com/yigitf/apm2go/internal/config"
 )
 
 // Component is a subsystem with a blocking Run that returns when ctx is done.

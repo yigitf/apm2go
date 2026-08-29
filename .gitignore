@@ -1,45 +1,33 @@
 # Build output
 /dist/
-/agent/bootstrap/build/
 /md/
 
-# Embedded assets are produced by the build, not committed: the OpenTelemetry
-# agent is 25MB and the bootstrap jar is compiled from the source beside it.
+# Everything the binary embeds is produced or fetched by build/Dockerfile.build,
+# never committed: the OpenTelemetry agent is 25MB, the OBI eBPF binary is 113MB
+# and architecture-specific, and the bootstrap jar and attach helper are compiled
+# from the source already in this repository.
 /internal/assets/files/*.jar
-
-# The OBI eBPF binary: 113MB, architecture-specific, downloaded by `make ebpf`
-# or per-arch by build/package.sh.
 /internal/ebpf/files/obi
-
-# The apm2go-attach-helper binary: architecture-specific, built by
-# `make attachhelper` or per-arch inside build/package.sh.
 /internal/attachhelper/files/apm2go-attach-helper
+/agent/bootstrap/build/
 
 # The web build output is embedded by the Go build, never committed: a built
 # index.html names hashed asset files, so committing it would produce binaries
 # whose UI references assets that are not in the repository. Only the directory
 # is tracked, because the embed directive needs it to exist; a binary built
-# without running `make web` serves a clear "UI was not built" message.
+# without the web stage serves a clear "UI was not built" message.
 /internal/api/dist/*
 !/internal/api/dist/.gitkeep
-
-# macOS finder metadata
-.DS_Store
 
 # Node
 /web/node_modules/
 /web/.vite/
+/web/*.tsbuildinfo
 
 # Local data
 *.duckdb
 *.duckdb.wal
 
-# Stray build artefacts
-/web/*.tsbuildinfo
-
-# Chain test workload: dependencies are fetched, classes are compiled
-/build/chain/lib/
-/build/chain/classes/
-
-# Multi-language test workload: the Go caller is compiled per architecture
-/build/multilang/go-caller
+# Stray archives and macOS finder metadata
+*.tar
+.DS_Store

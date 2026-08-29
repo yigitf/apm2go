@@ -11,7 +11,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
-	"github.com/apm2go/apm2go/internal/ingesttoken"
+	"github.com/yigitf/apm2go/internal/ingesttoken"
 )
 
 // Once the receiver listens on a container network's gateway, every container

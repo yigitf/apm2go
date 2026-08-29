@@ -1,4 +1,63 @@
-# Builds apm2go for Linux.
+# Builds apm2go for Linux, from source only.
+#
+# Everything the binary embeds is produced or fetched in here: the web UI, the
+# bootstrap agent jar, the OpenTelemetry Java agent, the OBI eBPF binary and the
+# cgo-free attach helper. That is the point of this file — the build host needs
+# Docker and nothing else, no Node.js and no JDK.
+#
+# The first three stages are pinned to $BUILDPLATFORM on purpose. Their output
+# is either architecture-independent (a JS bundle, a jar) or selected by an
+# explicit TARGETARCH (the OBI download), so running them natively rather than
+# under emulation costs nothing and saves a great deal of time when building for
+# the other architecture.
+
+ARG NODE_VERSION=22
+ARG JDK_VERSION=17
+ARG GO_VERSION=1.26.6
+ARG OTEL_AGENT_VERSION=2.30.0
+ARG OBI_VERSION=0.11.0
+
+# ---------------------------------------------------------------- web UI
+
+FROM --platform=$BUILDPLATFORM node:${NODE_VERSION}-alpine AS web
+WORKDIR /web
+COPY web/package.json web/package-lock.json ./
+RUN npm ci
+COPY web/ ./
+# vite.config.ts writes straight into the directory the Go build embeds, which
+# from /web resolves to /internal/api/dist — hence the path the builder copies
+# from below.
+RUN npm run build
+
+# ---------------------------------------------------------------- bootstrap jar
+
+# Not the -alpine tag: it is published for amd64 only, which breaks an arm64 build.
+FROM --platform=$BUILDPLATFORM eclipse-temurin:${JDK_VERSION}-jdk AS jar
+WORKDIR /agent
+COPY agent/bootstrap/ ./
+# --release 8 because the agent is loaded into whatever JVM is already running
+# on the host, and the floor apm2go supports is Java 8.
+RUN mkdir -p build/classes /out && \
+    javac --release 8 -Xlint:-options -d build/classes src/io/apm2go/bootstrap/BootstrapAgent.java && \
+    jar cfm /out/apm2go-bootstrap.jar manifest.txt -C build/classes .
+
+# ---------------------------------------------------------------- downloads
+
+FROM --platform=$BUILDPLATFORM alpine:3.20 AS deps
+ARG OTEL_AGENT_VERSION
+ARG OBI_VERSION
+ARG TARGETARCH
+RUN apk add --no-cache curl tar
+WORKDIR /out
+RUN curl -sSLf -o opentelemetry-javaagent.jar \
+        "https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v${OTEL_AGENT_VERSION}/opentelemetry-javaagent.jar"
+# OBI is the only download that is architecture-specific, hence TARGETARCH.
+RUN curl -sSLf -o /tmp/obi.tar.gz \
+        "https://github.com/open-telemetry/opentelemetry-ebpf-instrumentation/releases/download/v${OBI_VERSION}/obi-v${OBI_VERSION}-linux-${TARGETARCH}.tar.gz" && \
+    tar -xzf /tmp/obi.tar.gz -O obi > obi && \
+    chmod +x obi && rm -f /tmp/obi.tar.gz
+
+# ---------------------------------------------------------------- Go build
 #
 # The base image is chosen for its glibc, not its convenience. The DuckDB driver
 # uses cgo, so the binary links against the C library of whatever built it, and
@@ -9,9 +68,10 @@
 # Its default GCC is too old to link DuckDB's prebuilt C++ objects, so a newer
 # compiler is used from gcc-toolset — a newer toolchain against an older libc,
 # which is exactly the combination this needs.
+
 FROM rockylinux:8 AS builder
 
-ARG GO_VERSION=1.26.6
+ARG GO_VERSION
 
 # libstdc++-static supplies the archive that -static-libstdc++ links against.
 # Without it the flag is a silent no-op: the link succeeds and the binary comes
@@ -41,13 +101,21 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
 
 COPY . .
 
-# apm2go-attach-helper first, cgo-free, into the path the main build's
-# go:embed directive reads from. It has to happen before that build, and it
-# has to be CGO_ENABLED=0: the whole reason this is a separate binary is a
-# privilege-drop mechanism (Go's AllThreadsSyscall) that refuses to run the
-# instant cgo is linked in, which the main apm2go binary always is, for the
-# DuckDB driver two steps down from here. GOOS and GOARCH are already this
-# container's own, from --platform; no need to name them explicitly.
+# The embedded artefacts, straight from the stages above. .dockerignore keeps
+# the equivalents out of the build context, so these are the only ones that can
+# end up in the binary.
+COPY --from=web  /internal/api/dist/               internal/api/dist/
+COPY --from=jar  /out/apm2go-bootstrap.jar         internal/assets/files/
+COPY --from=deps /out/opentelemetry-javaagent.jar  internal/assets/files/
+COPY --from=deps /out/obi                          internal/ebpf/files/
+
+# apm2go-attach-helper next, cgo-free, into the path the main build's go:embed
+# directive reads from. It has to happen before that build, and it has to be
+# CGO_ENABLED=0: the whole reason this is a separate binary is a privilege-drop
+# mechanism (Go's AllThreadsSyscall) that refuses to run the instant cgo is
+# linked in, which the main apm2go binary always is, for the DuckDB driver two
+# steps down from here. GOOS and GOARCH are already this container's own, from
+# --platform; no need to name them explicitly.
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/root/go/pkg/mod \
     CGO_ENABLED=0 go build -trimpath -ldflags '-s -w' \
@@ -81,9 +149,9 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
             -linkmode external \
             -extld g++ \
             -extldflags '-L/opt/static-libs -static-libgcc' \
-            -X github.com/apm2go/apm2go/internal/version.Version=${VERSION} \
-            -X github.com/apm2go/apm2go/internal/version.Commit=${COMMIT} \
-            -X github.com/apm2go/apm2go/internal/version.BuildDate=${BUILD_DATE}" \
+            -X github.com/yigitf/apm2go/internal/version.Version=${VERSION} \
+            -X github.com/yigitf/apm2go/internal/version.Commit=${COMMIT} \
+            -X github.com/yigitf/apm2go/internal/version.BuildDate=${BUILD_DATE}" \
         -o /out/apm2go ./cmd/apm2go
 
 # The compatibility floor is asserted at build time rather than discovered on a
@@ -96,6 +164,20 @@ RUN echo "Requires at most glibc $(objdump -T /out/apm2go | grep -o 'GLIBC_[0-9.
         exit 1; \
     fi && \
     echo "libstdc++ is linked statically"
+
+# ---------------------------------------------------------------- test
+#
+# Tests run here rather than on the host for the same reason the build does: the
+# embedded assets and the cgo toolchain are both already in place. This is an
+# image to run, not a stage to build, because the privilege-drop test needs
+# CAP_SYS_PTRACE, which can only be granted at `docker run` time. `make test`
+# does both halves.
+
+FROM builder AS testenv
+COPY build/run-tests.sh /usr/local/bin/run-tests
+CMD ["/usr/local/bin/run-tests"]
+
+# ---------------------------------------------------------------- export
 
 FROM scratch AS export
 COPY --from=builder /out/apm2go /apm2go

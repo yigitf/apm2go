@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/apm2go/apm2go/internal/config"
-	"github.com/apm2go/apm2go/internal/jvmdiag"
-	"github.com/apm2go/apm2go/internal/store"
+	"github.com/yigitf/apm2go/internal/config"
+	"github.com/yigitf/apm2go/internal/jvmdiag"
+	"github.com/yigitf/apm2go/internal/store"
 )
 
 func newTestServer(t *testing.T) (*Server, *store.Store) {

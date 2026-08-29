@@ -5,8 +5,8 @@ package inventory
 import (
 	"time"
 
-	"github.com/apm2go/apm2go/internal/discovery"
-	"github.com/apm2go/apm2go/internal/injector"
+	"github.com/yigitf/apm2go/internal/discovery"
+	"github.com/yigitf/apm2go/internal/injector"
 )
 
 // State is where a JVM sits in the instrumentation lifecycle.

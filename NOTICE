@@ -1,0 +1,22 @@
+apm2go
+Copyright 2026 the apm2go authors
+
+This product includes software developed by third parties.
+
+The distributed binary, the RPM and DEB packages, and the container image embed
+the following components, each under its own licence:
+
+  OpenTelemetry Java Instrumentation (opentelemetry-javaagent.jar)
+  https://github.com/open-telemetry/opentelemetry-java-instrumentation
+  Apache License 2.0
+
+  OpenTelemetry eBPF Instrumentation (obi)
+  https://github.com/open-telemetry/opentelemetry-ebpf-instrumentation
+  Apache License 2.0
+
+  DuckDB, via github.com/marcboeker/go-duckdb
+  https://github.com/duckdb/duckdb
+  MIT License
+
+The Go module dependencies and their licences are listed in go.mod and go.sum;
+`go mod download` and `go-licenses` reproduce the full set.

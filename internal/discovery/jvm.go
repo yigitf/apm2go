@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/apm2go/apm2go/internal/container"
+	"github.com/yigitf/apm2go/internal/container"
 )
 
 // JVM describes one discovered Java process.

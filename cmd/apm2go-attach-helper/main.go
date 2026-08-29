@@ -32,7 +32,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/apm2go/apm2go/internal/attach"
+	"github.com/yigitf/apm2go/internal/attach"
 )
 
 func main() {

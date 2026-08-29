@@ -16,8 +16,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/apm2go/apm2go/internal/config"
-	"github.com/apm2go/apm2go/internal/model"
+	"github.com/yigitf/apm2go/internal/config"
+	"github.com/yigitf/apm2go/internal/model"
 )
 
 // Writer is the store's ingest side.

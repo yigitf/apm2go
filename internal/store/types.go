@@ -3,7 +3,7 @@ package store
 import (
 	"time"
 
-	"github.com/apm2go/apm2go/internal/model"
+	"github.com/yigitf/apm2go/internal/model"
 )
 
 // TimeRange bounds a query. From is inclusive, To exclusive.

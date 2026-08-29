@@ -6,9 +6,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/apm2go/apm2go/internal/config"
-	"github.com/apm2go/apm2go/internal/logging"
-	"github.com/apm2go/apm2go/internal/version"
+	"github.com/yigitf/apm2go/internal/config"
+	"github.com/yigitf/apm2go/internal/logging"
+	"github.com/yigitf/apm2go/internal/version"
 )
 
 // defaultConfigPath is where the RPM/DEB packages install the config file.
@@ -26,7 +26,7 @@ func newRootCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:           "apm2go",
-		Short:         "Standalone APM for Java applications",
+		Short:         "Standalone APM for applications already running on a host",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		Version:       version.String(),

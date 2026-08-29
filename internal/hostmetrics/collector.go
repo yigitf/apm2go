@@ -21,7 +21,7 @@ import (
 	"github.com/shirou/gopsutil/v4/mem"
 	"github.com/shirou/gopsutil/v4/net"
 
-	"github.com/apm2go/apm2go/internal/model"
+	"github.com/yigitf/apm2go/internal/model"
 )
 
 // hostService is the service name host metrics are filed under. It is not a

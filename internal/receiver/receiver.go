@@ -17,7 +17,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/apm2go/apm2go/internal/ingesttoken"
+	"github.com/yigitf/apm2go/internal/ingesttoken"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -28,8 +28,8 @@ import (
 	metricpb "go.opentelemetry.io/proto/otlp/metrics/v1"
 	tracepb "go.opentelemetry.io/proto/otlp/trace/v1"
 
-	"github.com/apm2go/apm2go/internal/config"
-	"github.com/apm2go/apm2go/internal/model"
+	"github.com/yigitf/apm2go/internal/config"
+	"github.com/yigitf/apm2go/internal/model"
 )
 
 // Consumer receives converted telemetry. The pipeline implements it.

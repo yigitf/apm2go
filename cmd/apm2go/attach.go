@@ -7,11 +7,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/apm2go/apm2go/internal/assets"
-	"github.com/apm2go/apm2go/internal/attachhelper"
-	"github.com/apm2go/apm2go/internal/discovery"
-	"github.com/apm2go/apm2go/internal/ingesttoken"
-	"github.com/apm2go/apm2go/internal/injector"
+	"github.com/yigitf/apm2go/internal/assets"
+	"github.com/yigitf/apm2go/internal/attachhelper"
+	"github.com/yigitf/apm2go/internal/discovery"
+	"github.com/yigitf/apm2go/internal/ingesttoken"
+	"github.com/yigitf/apm2go/internal/injector"
 )
 
 func newAttachCmd(gf *globalFlags) *cobra.Command {

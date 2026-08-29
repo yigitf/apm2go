@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/apm2go/apm2go/internal/container"
-	"github.com/apm2go/apm2go/internal/netns"
+	"github.com/yigitf/apm2go/internal/container"
+	"github.com/yigitf/apm2go/internal/netns"
 )
 
 // clockTicks is the kernel's USER_HZ, used to convert /proc/<pid>/stat's

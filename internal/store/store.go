@@ -19,7 +19,7 @@ import (
 
 	"github.com/marcboeker/go-duckdb/v2"
 
-	"github.com/apm2go/apm2go/internal/config"
+	"github.com/yigitf/apm2go/internal/config"
 )
 
 // metaSchemaVersion is the meta table key holding the schema version.

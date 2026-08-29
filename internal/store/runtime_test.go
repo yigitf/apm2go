@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/apm2go/apm2go/internal/config"
-	"github.com/apm2go/apm2go/internal/model"
+	"github.com/yigitf/apm2go/internal/config"
+	"github.com/yigitf/apm2go/internal/model"
 )
 
 // entrySpan builds a server span, which is what ListServices counts.

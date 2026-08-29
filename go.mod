@@ -1,4 +1,4 @@
-module github.com/apm2go/apm2go
+module github.com/yigitf/apm2go
 
 go 1.26.6
 

@@ -9,6 +9,19 @@ Pick the package if apm2go should watch a whole host. Pick the container if you
 are trying it out, or if the host is managed by something that would rather not
 have a package installed on it.
 
+## Getting the artefacts
+
+Everything is prebuilt. The packages are release assets, and the image is on the
+GitHub container registry:
+
+- **Packages:** the [releases page](https://github.com/yigitf/apm2go/releases)
+  carries one `.rpm` and one `.deb` per version, x86-64.
+- **Image:** `ghcr.io/yigitf/apm2go:latest`, one tag serving both x86-64 and
+  arm64. Version tags such as `ghcr.io/yigitf/apm2go:v0.1.0` pin a release.
+
+To build them yourself instead, see
+[CONTRIBUTING.md](CONTRIBUTING.md#before-you-build); it needs nothing but Docker.
+
 ## Before you start
 
 - **Linux**, glibc 2.25 or newer (RHEL/Rocky/Alma 8+, Ubuntu 18.04+, Debian 10+).
@@ -38,7 +51,7 @@ docker run -d --name apm2go \
   --pid=host --network=host --privileged \
   -v /var/run/docker.sock:/var/run/docker.sock:ro \
   -v apm2go-data:/var/lib/apm2go \
-  apm2go:latest
+  ghcr.io/yigitf/apm2go:latest
 ```
 
 Then open **http://\<host\>:8080**.
@@ -179,7 +192,7 @@ docker run -d --name apm2go \
   -e APM2GO_API_ADDR=0.0.0.0:9090 \
   -v /var/run/docker.sock:/var/run/docker.sock:ro \
   -v apm2go-data:/var/lib/apm2go \
-  apm2go:latest
+  ghcr.io/yigitf/apm2go:latest
 ```
 
 Then open **http://\<host\>:9090**. There is no need to publish the port with

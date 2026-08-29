@@ -1,0 +1,105 @@
+name: Release
+
+# Triggered by a version tag. Produces the three deliverables and publishes them:
+# the x86-64 .deb and .rpm as release assets, and the container image as one
+# multi-architecture manifest on the GitHub container registry.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write   # create the release and upload the packages to it
+  packages: write   # push the image to ghcr.io
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}
+
+jobs:
+  packages:
+    name: Packages (x86-64)
+    runs-on: ubuntu-latest
+    steps:
+      # fetch-depth: 0 because the Makefile takes the version from
+      # `git describe --tags`, which sees nothing in a shallow clone.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Both targets build the same x86-64 binary; BuildKit's cache means the
+      # second one does not build it again.
+      - name: Build the packages
+        run: |
+          make rpm
+          make deb
+
+      - name: Publish them as release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --title "$TAG" --generate-notes --verify-tag
+          fi
+          gh release upload "$TAG" dist/*.rpm dist/*.deb --clobber
+
+  image:
+    name: Image (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Each architecture is built on a runner of that architecture rather
+          # than under QEMU. The cgo DuckDB link is slow enough emulated to be
+          # worth the extra job, and arm64 runners are free for public repos.
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build the image
+        run: make image ARCH=${{ matrix.arch }}
+
+      # Pushed under a per-architecture tag, which the job below folds into a
+      # single manifest. The intermediate tags stay in the registry; they are
+      # what makes a failed manifest step debuggable.
+      - name: Push it under a per-architecture tag
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          docker tag apm2go:latest "$IMAGE:$TAG-${{ matrix.arch }}"
+          docker push "$IMAGE:$TAG-${{ matrix.arch }}"
+
+  manifest:
+    name: Multi-architecture manifest
+    needs: image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # This is what makes `docker pull ghcr.io/yigitf/apm2go` resolve to the
+      # right architecture on its own.
+      - name: Join the per-architecture images into one tag
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          docker buildx imagetools create \
+            --tag "$IMAGE:$TAG" \
+            --tag "$IMAGE:latest" \
+            "$IMAGE:$TAG-amd64" \
+            "$IMAGE:$TAG-arm64"

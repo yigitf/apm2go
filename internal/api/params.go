@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/apm2go/apm2go/internal/store"
+	"github.com/yigitf/apm2go/internal/store"
 )
 
 // defaultRange is what a request with no time parameters means: the last hour,

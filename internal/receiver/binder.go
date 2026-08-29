@@ -6,7 +6,7 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/apm2go/apm2go/internal/config"
+	"github.com/yigitf/apm2go/internal/config"
 )
 
 // A containerized application reaches this host at its network's gateway, so

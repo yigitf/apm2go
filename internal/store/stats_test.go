@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/apm2go/apm2go/internal/model"
+	"github.com/yigitf/apm2go/internal/model"
 )
 
 func manyMetrics(n int, from time.Time) []*model.Metric {

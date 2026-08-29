@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/apm2go/apm2go/internal/model"
+	"github.com/yigitf/apm2go/internal/model"
 )
 
 // candidateMultiplier decides how many traces the matching stage may collect

@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/apm2go/apm2go/internal/ebpf"
-	"github.com/apm2go/apm2go/internal/model"
+	"github.com/yigitf/apm2go/internal/ebpf"
+	"github.com/yigitf/apm2go/internal/model"
 )
 
 // fakeConsumer records every batch it receives.

@@ -8,17 +8,17 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/apm2go/apm2go/internal/assets"
-	"github.com/apm2go/apm2go/internal/config"
-	"github.com/apm2go/apm2go/internal/container"
-	"github.com/apm2go/apm2go/internal/hostmetrics"
-	"github.com/apm2go/apm2go/internal/inventory"
-	"github.com/apm2go/apm2go/internal/jvmdiag"
-	"github.com/apm2go/apm2go/internal/model"
-	"github.com/apm2go/apm2go/internal/pipeline"
-	"github.com/apm2go/apm2go/internal/receiver"
-	"github.com/apm2go/apm2go/internal/store"
-	"github.com/apm2go/apm2go/internal/version"
+	"github.com/yigitf/apm2go/internal/assets"
+	"github.com/yigitf/apm2go/internal/config"
+	"github.com/yigitf/apm2go/internal/container"
+	"github.com/yigitf/apm2go/internal/hostmetrics"
+	"github.com/yigitf/apm2go/internal/inventory"
+	"github.com/yigitf/apm2go/internal/jvmdiag"
+	"github.com/yigitf/apm2go/internal/model"
+	"github.com/yigitf/apm2go/internal/pipeline"
+	"github.com/yigitf/apm2go/internal/receiver"
+	"github.com/yigitf/apm2go/internal/store"
+	"github.com/yigitf/apm2go/internal/version"
 )
 
 // Handlers implements the JSON API.

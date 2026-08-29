@@ -19,8 +19,8 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/apm2go/apm2go/internal/attach"
-	"github.com/apm2go/apm2go/internal/discovery"
+	"github.com/yigitf/apm2go/internal/attach"
+	"github.com/yigitf/apm2go/internal/discovery"
 )
 
 // The diagnostic commands apm2go issues. These strings are HotSpot's own

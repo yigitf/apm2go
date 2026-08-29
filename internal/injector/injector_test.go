@@ -8,10 +8,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apm2go/apm2go/internal/assets"
-	"github.com/apm2go/apm2go/internal/config"
-	"github.com/apm2go/apm2go/internal/discovery"
-	"github.com/apm2go/apm2go/internal/ingesttoken"
+	"github.com/yigitf/apm2go/internal/assets"
+	"github.com/yigitf/apm2go/internal/config"
+	"github.com/yigitf/apm2go/internal/discovery"
+	"github.com/yigitf/apm2go/internal/ingesttoken"
 )
 
 func newTestInjector(t *testing.T, cfg config.AttachConfig) *Injector {

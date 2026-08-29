@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/apm2go/apm2go/internal/config"
+	"github.com/yigitf/apm2go/internal/config"
 )
 
 func newTestStore(t *testing.T) *Store {

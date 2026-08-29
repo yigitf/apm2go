@@ -2,6 +2,16 @@
   <img src="logo_md.png" alt="apm2go" width="360">
 </p>
 
+<p align="center">
+  <a href="https://apm2go.fatihyigit.com"><strong>apm2go.fatihyigit.com</strong></a>
+</p>
+
+<p align="center">
+  <a href="LICENSE"><img alt="License: Apache 2.0" src="https://img.shields.io/badge/license-Apache--2.0-blue.svg"></a>
+  <img alt="Platform: Linux" src="https://img.shields.io/badge/platform-linux%20x86--64-lightgrey.svg">
+  <img alt="Language: Go" src="https://img.shields.io/badge/go-1.26-00ADD8.svg">
+</p>
+
 # apm2go
 
 apm2go is a single-file APM (application performance monitoring) tool that
@@ -27,69 +37,74 @@ and is one file.
 
 ## Installing
 
-There's no prebuilt package or image distributed yet — you first clone the
-repo and build your own package/image. The build happens inside Docker
-containers (cross-building for Linux amd64/arm64), so it doesn't matter
-whether your build machine is macOS or Linux; the only requirement is having
-Docker installed.
+Three ways, all the same binary. The packages are x86-64, since the hosts apm2go
+gets installed on are servers; the container image also comes in arm64, since
+trying apm2go out often happens on an arm64 laptop.
 
-You can install it one of three ways below, all using the same binary.
+Replace `v0.1.0` below with the newest tag on the
+[releases page](https://github.com/yigitf/apm2go/releases).
 
-### Docker
+### 1. RHEL / Rocky / Alma / Fedora
 
 ```bash
-git clone https://github.com/yigitf/apm2go.git
-cd apm2go
-make image                          # builds the apm2go:latest image
+sudo dnf install https://github.com/yigitf/apm2go/releases/download/v0.1.0/apm2go-0.1.0-1.x86_64.rpm
 ```
 
-Then run it — `--pid=host --network=host` is needed so it can see both the
-host's processes and the ones in other containers:
+### 2. Debian / Ubuntu
+
+```bash
+curl -LO https://github.com/yigitf/apm2go/releases/download/v0.1.0/apm2go_0.1.0_amd64.deb
+sudo apt install ./apm2go_0.1.0_amd64.deb
+```
+
+### After either package
+
+Installing the package doesn't start the service automatically — you can first
+run `sudo apm2go list` to see what apm2go finds on the host, then start it with:
+
+```bash
+sudo systemctl enable --now apm2go
+```
+
+The web interface is on `http://<host>:8080`.
+
+### 3. Docker
+
+```bash
+docker pull ghcr.io/yigitf/apm2go:latest
+```
+
+One tag serves both x86-64 and arm64. `--pid=host --network=host` are needed so
+it can see both the host's processes and the ones in other containers:
 
 ```bash
 docker run -d --name apm2go \
   --pid=host --network=host --privileged \
   -v /var/run/docker.sock:/var/run/docker.sock:ro \
   -v apm2go-data:/var/lib/apm2go \
-  apm2go:latest
+  ghcr.io/yigitf/apm2go:latest
 ```
 
-Once it's up, open `http://<host>:8080`.
+Then open `http://<host>:8080`.
 
-### Debian / Ubuntu
-
-```bash
-git clone https://github.com/yigitf/apm2go.git
-cd apm2go
-make package                        # builds the binary + .deb + .rpm into dist/
-sudo apt install ./dist/apm2go_*.deb
-```
-
-### RHEL / Rocky / Alma / Fedora
-
-```bash
-git clone https://github.com/yigitf/apm2go.git
-cd apm2go
-make package                        # builds the binary + .deb + .rpm into dist/
-sudo dnf install ./dist/apm2go-*.rpm
-```
-
-`make package` builds packages for both the Debian/Ubuntu and RHEL families
-in one go, into `dist/`; just install whichever one matches your
-distribution.
-
-Installing the package doesn't start the service automatically — you can
-first run `sudo apm2go list` to see what apm2go finds on the host, then
-start it with `sudo systemctl enable --now apm2go`.
-
-For the details of the package and container installs, why each permission
-is needed, and troubleshooting steps, see [INSTALL.md](INSTALL.md).
+For the details of the package and container installs, why each permission is
+needed, and troubleshooting steps, see [INSTALL.md](INSTALL.md). To build any of
+the three yourself instead, see [CONTRIBUTING.md](CONTRIBUTING.md#before-you-build)
+— it needs nothing but Docker.
 
 ## Requirements
 
+On the machine being monitored:
+
 - Linux, glibc 2.25 or newer (RHEL/Rocky/Alma 8+, Ubuntu 18.04+, Debian 10+)
+- x86-64 for the packages; the container image is built for x86-64 or arm64
 - Root (attaching to a JVM requires becoming that JVM's own user)
 - Java 8 or newer in the processes being monitored
+- Kernel 5.8+ with BTF, only for watching non-Java processes; Java works on
+  anything
+
+Nothing is needed on the machine you install *from* — the packages and the image
+are prebuilt. Building them yourself needs Docker and nothing else.
 
 ## How it works
 
@@ -120,18 +135,39 @@ apm2go attach <pid>         # instruments one process right now
 apm2go version
 ```
 
-## Building
+## Building it yourself
+
+Docker is the only requirement: the web UI, both agent jars, the eBPF binary and
+the attach helper are all built or fetched inside the build container, so there
+is no Go toolchain, Node.js or JDK to install.
 
 ```bash
-make build         # binary for the host
-make test          # unit tests
-make package       # linux amd64 + arm64 binaries, RPM and DEB packages
+git clone https://github.com/yigitf/apm2go.git
+cd apm2go
+
+make            # lists every target
+make rpm        # the .rpm, and only the .rpm
+make deb        # the .deb, and only the .deb
+make image      # the container image; ARCH=amd64 or ARCH=arm64
+make test       # gofmt, go vet and the unit tests, in a container
 ```
 
-For more development commands and architecture notes, see
-[CLAUDE.md](CLAUDE.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md) for how to report a bug usefully and what
+a good pull request looks like.
 
 ## More detail
 
 For a more technical writeup of the architecture, container network
 resolution, eBPF limits and metric storage, see [DETAILS.md](DETAILS.md).
+The project site is at [apm2go.fatihyigit.com](https://apm2go.fatihyigit.com).
+
+## Security
+
+apm2go runs as root and attaches to processes it did not start. To report a
+vulnerability, and for what is in and out of scope, see
+[SECURITY.md](SECURITY.md).
+
+## Licence
+
+Apache License 2.0 — see [LICENSE](LICENSE). The bundled third-party
+components and their licences are listed in [NOTICE](NOTICE).

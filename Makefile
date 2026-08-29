@@ -1,8 +1,12 @@
 # apm2go build targets.
 #
-# The binary embeds the web UI and both agent jars, so `make build` depends on
-# the web and jar targets. Linux binaries are built inside a container because
-# the DuckDB driver needs cgo and the host is usually not Linux.
+# There are three deliverables and one target each: a .deb, an .rpm, and a
+# container image. Nothing builds the other two — `make rpm` produces an RPM and
+# leaves dist/ otherwise untouched.
+#
+# Every target runs inside Docker, so Docker is the only thing this host needs.
+# The web UI, both agent jars, the eBPF binary and the attach helper are all
+# built or fetched inside build/Dockerfile.build; no Node.js and no JDK here.
 
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
@@ -11,148 +15,94 @@ VERSION    ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo d
 COMMIT     ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo none)
 BUILD_DATE ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 
-MODULE  := github.com/apm2go/apm2go
-LDFLAGS := -s -w \
-	-X $(MODULE)/internal/version.Version=$(VERSION) \
-	-X $(MODULE)/internal/version.Commit=$(COMMIT) \
-	-X $(MODULE)/internal/version.BuildDate=$(BUILD_DATE)
+# The packages are x86-64 only, and deliberately not a knob. apm2go is installed
+# on servers, and those are amd64; an arm64 RPM would be a second artefact to
+# build, publish and answer questions about for no one who exists.
+PKG_ARCH := amd64
 
-OTEL_AGENT_VERSION := 2.30.0
-OTEL_AGENT_URL := https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v$(OTEL_AGENT_VERSION)/opentelemetry-javaagent.jar
+# The container image is the one deliverable that is built for either
+# architecture, since it is also what people try apm2go out with — often on an
+# arm64 laptop. Defaults to this machine's, so `make image` is runnable straight
+# away; `make image ARCH=amd64` builds the one a server wants.
+ARCH ?= $(shell uname -m | sed 's/x86_64/amd64/; s/aarch64/arm64/')
 
-ASSETS_DIR     := internal/assets/files
-BOOTSTRAP_JAR  := $(ASSETS_DIR)/apm2go-bootstrap.jar
-OTEL_JAR       := $(ASSETS_DIR)/opentelemetry-javaagent.jar
-UI_DIST        := internal/api/dist
+# nfpm rejects a leading "v" and anything that is not semver-ish, so a git
+# describe such as "v0.2.0-3-gabc1234" is normalised here rather than failing
+# minutes into the build.
+PKG_VERSION := $(shell echo "$(VERSION)" | sed 's/^v//; s/-dirty$$//; s/-g[0-9a-f]*$$//; s/-/./g')
 
-# apm2go-attach-helper is Linux- and architecture-specific, like OBI below, for
-# the same reason: it is a real Linux binary embedded via a //go:build linux
-# file, so a macOS `make build` never looks at it. Unlike OBI it is built from
-# source already in this repo, not downloaded, and unlike every other embedded
-# artifact it must be compiled with CGO_ENABLED=0 specifically — see its own
-# package doc for why that is not an optimisation but the entire point of it
-# being a separate binary at all.
-ATTACHHELPER_DIR := internal/attachhelper/files
-ATTACHHELPER_BIN := $(ATTACHHELPER_DIR)/apm2go-attach-helper
+DIST := dist
 
-# OBI is Linux- and architecture-specific, unlike the Java agent jars, so this
-# target downloads for the host's own GOARCH. build/package.sh downloads it
-# again per target architecture immediately before that architecture's
-# container build, overwriting this file each time.
-OBI_VERSION := 0.11.0
-EBPF_DIR    := internal/ebpf/files
-EBPF_BIN    := $(EBPF_DIR)/obi
-OBI_URL      = https://github.com/open-telemetry/opentelemetry-ebpf-instrumentation/releases/download/v$(OBI_VERSION)/obi-v$(OBI_VERSION)-linux-$(shell go env GOARCH).tar.gz
+# Builds the Linux binary for $(1) and leaves it at dist/apm2go_$(1). Every
+# deliverable is made of one of these.
+#
+# Not expressed as a rule for that file, so that editing a source file is not
+# mistaken for having nothing to do. BuildKit's own cache is what makes a no-op
+# rebuild cheap here, and it, unlike a timestamp, actually knows what went into
+# the binary.
+define build_binary
+	@mkdir -p $(DIST)
+	docker build --platform linux/$(1) \
+		--build-arg VERSION=$(VERSION) \
+		--build-arg COMMIT=$(COMMIT) \
+		--build-arg BUILD_DATE=$(BUILD_DATE) \
+		-f build/Dockerfile.build --target export \
+		--output type=local,dest=$(DIST)/export_$(1) .
+	mv $(DIST)/export_$(1)/apm2go $(DIST)/apm2go_$(1)
+	@rmdir $(DIST)/export_$(1)
+endef
 
-BIN_DIR := dist
+# Produces the package in format $(1) without touching the other. nfpm is used
+# rather than rpmbuild or dpkg-deb so packages can be built on any host,
+# including macOS, with no distribution tooling installed.
+define package
+	@sed -e 's|$${ARCH}|$(PKG_ARCH)|g' -e 's|$${VERSION}|$(PKG_VERSION)|g' \
+		packaging/nfpm.yaml > $(DIST)/nfpm.yaml
+	docker run --rm -v "$(CURDIR):/work" -w /work goreleaser/nfpm:latest package \
+		--config $(DIST)/nfpm.yaml --packager $(1) --target /work/$(DIST)/
+	@rm -f $(DIST)/nfpm.yaml
+endef
 
 .PHONY: help
 help: ## Show this help
 	@grep -hE '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | \
-		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
+		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2}'
+	@echo
+	@echo "  Packages are always linux/$(PKG_ARCH)."
+	@echo "  The image is linux/$(ARCH); override with ARCH=amd64 or ARCH=arm64."
 
-# ---------------------------------------------------------------- assets
+# ---------------------------------------------------------------- deliverables
 
-$(OTEL_JAR): ## Download the bundled OpenTelemetry Java agent
-	@mkdir -p $(ASSETS_DIR)
-	curl -sSLf -o $@ $(OTEL_AGENT_URL)
+.PHONY: deb
+deb: ## Build the x86-64 .deb package for Debian and Ubuntu
+	$(call build_binary,$(PKG_ARCH))
+	$(call package,deb)
+	@ls -1sh $(DIST)/*.deb
 
-.PHONY: bootstrap-jar
-bootstrap-jar: $(BOOTSTRAP_JAR) ## Compile the apm2go bootstrap agent jar
-
-$(BOOTSTRAP_JAR): agent/bootstrap/src/io/apm2go/bootstrap/BootstrapAgent.java agent/bootstrap/manifest.txt
-	@mkdir -p agent/bootstrap/build/classes $(ASSETS_DIR)
-	javac --release 8 -Xlint:-options -d agent/bootstrap/build/classes $<
-	jar cfm $@ agent/bootstrap/manifest.txt -C agent/bootstrap/build/classes .
-
-$(EBPF_BIN):
-	@mkdir -p $(EBPF_DIR)
-	curl -sSLf -o /tmp/obi.tar.gz "$(OBI_URL)"
-	tar -xzf /tmp/obi.tar.gz -O obi > $@
-	chmod +x $@
-	rm -f /tmp/obi.tar.gz
-
-.PHONY: ebpf
-ebpf: $(EBPF_BIN) ## Download the bundled OBI (eBPF instrumentation) binary for the host architecture
-
-$(ATTACHHELPER_BIN): internal/attach/*.go cmd/apm2go-attach-helper/main.go
-	@mkdir -p $(ATTACHHELPER_DIR)
-	CGO_ENABLED=0 GOOS=linux GOARCH=$(shell go env GOARCH) \
-		go build -trimpath -ldflags '-s -w' -o $@ ./cmd/apm2go-attach-helper
-
-.PHONY: attachhelper
-attachhelper: $(ATTACHHELPER_BIN) ## Build the cgo-free attach helper for the host architecture
-
-.PHONY: assets
-assets: $(BOOTSTRAP_JAR) $(OTEL_JAR) ## Prepare the Java embedded assets
-# OBI and the attach helper are not included here: both are Linux-only and
-# irrelevant to a macOS `make build`, where the //go:build linux embeds never
-# compile either in. `build-linux` builds both per architecture inside
-# build/package.sh; `make ebpf` and `make attachhelper` are the standalone way
-# to get them for a Linux host.
-
-# ---------------------------------------------------------------- web ui
-
-.PHONY: web
-web: ## Build the web UI into the directory the binary embeds
-	cd web && npm ci && npm run build
-
-$(UI_DIST):
-	@$(MAKE) web
-
-# ---------------------------------------------------------------- build
-
-.PHONY: build
-build: assets web ## Build apm2go for the host platform
-	@mkdir -p $(BIN_DIR)
-	go build -trimpath -ldflags '$(LDFLAGS)' -o $(BIN_DIR)/apm2go ./cmd/apm2go
-
-.PHONY: build-linux
-build-linux: assets web ## Build linux amd64 and arm64 binaries in a container
-	ARCHES="amd64 arm64" VERSION=$(VERSION) COMMIT=$(COMMIT) BUILD_DATE=$(BUILD_DATE) ./build/package.sh
-
-# ---------------------------------------------------------------- test
-
-.PHONY: test
-test: ## Run unit tests
-	go test ./...
-
-.PHONY: lint
-lint: ## Vet and format-check the tree
-	gofmt -l . | tee /dev/stderr | (! read)
-	go vet ./...
-
-.PHONY: e2e
-e2e: ## Verify discovery, attach and ingest against a real JVM
-	./build/e2e.sh
-
-.PHONY: e2e-container
-e2e-container: image ## Verify the same across a container boundary
-	./build/e2e-container.sh
-
-.PHONY: e2e-multilang
-e2e-multilang: ## Verify eBPF instrumentation of Node.js, Python and Go against the Java chain
-	./build/e2e-multilang.sh
-
-.PHONY: e2e-multicontainer
-e2e-multicontainer: image ## Verify discovery with apm2go and every service in separate containers
-	./build/e2e-multicontainer.sh
-
-.PHONY: e2e-all
-e2e-all: e2e e2e-container e2e-multilang e2e-multicontainer ## Run every acceptance test
-
-# ---------------------------------------------------------------- package
-
-.PHONY: package
-package: build-linux ## Build linux binaries plus RPM and DEB packages
-	@echo "Packages are in $(BIN_DIR)/"
+.PHONY: rpm
+rpm: ## Build the x86-64 .rpm package for RHEL, Rocky, Alma and Fedora
+	$(call build_binary,$(PKG_ARCH))
+	$(call package,rpm)
+	@ls -1sh $(DIST)/*.rpm
 
 .PHONY: image
-image: ## Build the apm2go container image for the host architecture
-	docker build -f build/Dockerfile.apm2go \
-		--build-arg TARGETARCH=$(shell go env GOARCH) \
-		-t apm2go:$(VERSION) -t apm2go:latest .
+image: ## Build the apm2go container image for ARCH (amd64 or arm64)
+	$(call build_binary,$(ARCH))
+	docker build --platform linux/$(ARCH) -f build/Dockerfile.apm2go \
+		--build-arg TARGETARCH=$(ARCH) \
+		-t apm2go:$(PKG_VERSION) -t apm2go:latest .
+
+# ---------------------------------------------------------------- development
+
+# Two steps, because CAP_SYS_PTRACE is not in Docker's default set and cannot be
+# granted during a build: internal/attach's privilege-drop test verifies nothing
+# without it. Tests run on this machine's architecture, to stay out of emulation.
+.PHONY: test
+test: ## Run gofmt, go vet and the unit tests
+	docker build --platform linux/$(ARCH) \
+		-f build/Dockerfile.build --target testenv -t apm2go-test:$(ARCH) .
+	docker run --rm --cap-add SYS_PTRACE apm2go-test:$(ARCH)
 
 .PHONY: clean
 clean: ## Remove build output
-	rm -rf $(BIN_DIR) agent/bootstrap/build $(UI_DIST)
+	rm -rf $(DIST)

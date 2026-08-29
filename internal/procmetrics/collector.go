@@ -31,8 +31,8 @@ import (
 
 	gopsprocess "github.com/shirou/gopsutil/v4/process"
 
-	"github.com/apm2go/apm2go/internal/ebpf"
-	"github.com/apm2go/apm2go/internal/model"
+	"github.com/yigitf/apm2go/internal/ebpf"
+	"github.com/yigitf/apm2go/internal/model"
 )
 
 // Consumer receives collected metrics. The pipeline implements it.

@@ -12,7 +12,7 @@
 #     --pid=host --network=host --privileged \
 #     -v /var/run/docker.sock:/var/run/docker.sock:ro \
 #     -v apm2go-data:/var/lib/apm2go \
-#     apm2go:latest
+#     ghcr.io/yigitf/apm2go:latest
 #
 # --pid=host lets discovery see JVMs in other containers and on the host.
 # --network=host is what lets apm2go bind the container gateways that

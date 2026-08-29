@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/apm2go/apm2go/internal/config"
+	"github.com/yigitf/apm2go/internal/config"
 )
 
 // Server hosts the API and the UI on one port, so an install exposes a single

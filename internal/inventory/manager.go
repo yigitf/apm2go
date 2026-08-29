@@ -8,10 +8,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/apm2go/apm2go/internal/config"
-	"github.com/apm2go/apm2go/internal/container"
-	"github.com/apm2go/apm2go/internal/discovery"
-	"github.com/apm2go/apm2go/internal/injector"
+	"github.com/yigitf/apm2go/internal/config"
+	"github.com/yigitf/apm2go/internal/container"
+	"github.com/yigitf/apm2go/internal/discovery"
+	"github.com/yigitf/apm2go/internal/injector"
 )
 
 // exitedRetention is how long a dead process stays visible, so an operator who

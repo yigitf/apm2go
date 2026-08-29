@@ -7,7 +7,7 @@ import (
 
 	metricpb "go.opentelemetry.io/proto/otlp/metrics/v1"
 
-	"github.com/apm2go/apm2go/internal/model"
+	"github.com/yigitf/apm2go/internal/model"
 )
 
 // OTLP describes a metric as a name plus a list of data points, each carrying

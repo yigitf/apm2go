@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/apm2go/apm2go/internal/jvmdiag"
-	"github.com/apm2go/apm2go/internal/store"
+	"github.com/yigitf/apm2go/internal/jvmdiag"
+	"github.com/yigitf/apm2go/internal/store"
 )
 
 // diagnosticTimeout bounds one diagnostic command. It is longer than an attach
